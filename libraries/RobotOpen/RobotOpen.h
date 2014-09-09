@@ -61,8 +61,7 @@ public:
     static int numJoysticks();
 
     // Calls for ROShield
-    static void xmitPWM();
-    static void xmitSolenoid();
+    static void xmitCoprocessor();
 
     // Overloaded calls to publish back data
     static boolean publish(String id, unsigned char val);

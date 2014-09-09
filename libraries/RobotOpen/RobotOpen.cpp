@@ -45,6 +45,7 @@ static unsigned int _outgoingPacketSize = 1;
 
 // Robot specific stuff
 static boolean _enabled = false;            // Tells us if the robot is enabled or disabled
+static uint8_t _controller_state = 1;       // 1 - NC, 2 - Disabled, 3 - Enabled (sent over SPI to coprocessor)
 static unsigned long _lastPacket = 0;       // Keeps track of the last time (ms) we received data
 static unsigned long _lastTimedLoop = 0;    // Keeps track of the last time the timed loop ran
 static unsigned long _lastDSLoop = 0;       // Keeps track of the last time we published DS data
@@ -158,51 +159,34 @@ void RobotOpenClass::onDisable() {
     for (int i = 0; i < 12; i++) {
         _pwmStates[i] = 127;
     }
-    xmitPWM();
     // disable all Solenoids
     for (int i = 0; i < 8; i++) {
         _solenoidStates[i] = 0;
     }
-    xmitSolenoid();
+    xmitCoprocessor();
 }
 
-void RobotOpenClass::xmitPWM() {
-    // Update the PWM generator values over SPI
+void RobotOpenClass::xmitCoprocessor() {
+    // update controller state w/ coprocessor
 
     // enable Slave Select
     digitalWrite(9, LOW);
-  
-    for (uint8_t i=0; i<12; i++) {
-        // set PWM opcode
-        SPI.transfer(0x04);
-  
-        // PWM channel
-        SPI.transfer(i);
 
-        // servo val 0-255
+    // set controller state OPCODE
+    SPI.transfer(0x04);
+  
+    // write PWMs
+    for (uint8_t i=0; i<12; i++) {
         SPI.transfer(_pwmStates[i]);
     }
 
-    // disable Slave Select
-    digitalWrite(9, HIGH);
-}
-
-void RobotOpenClass::xmitSolenoid() {
-    // Update the solenoid values over SPI
-
-    // enable Slave Select
-    digitalWrite(9, LOW);
-  
-    for (uint8_t i=0; i<7; i++) {
-        // set solenoid opcode
-        SPI.transfer(0x05);
-  
-        // solenoid channel
-        SPI.transfer(i);
-
-        // solenoid state (0x00/0xFF)
+    // write solenoids
+    for (uint8_t i=0; i<8; i++) {
         SPI.transfer(_solenoidStates[i]);
     }
+
+    // write LED state
+    SPI.transfer(_controller_state);
 
     // disable Slave Select
     digitalWrite(9, HIGH);
@@ -215,6 +199,7 @@ void RobotOpenClass::syncDS() {
     // detect disconnect
     if ((millis() - _lastPacket) > connection_timeout) {  // Disable the robot, drop the connection
         _enabled = false;
+        _controller_state = 1;
         // NO CONNECTION
         if (!firstEnableLoop) {
             onDisable();
@@ -222,6 +207,7 @@ void RobotOpenClass::syncDS() {
         }
 	}
     else if (_enabled == true) {
+        _controller_state = 3;
         // ENABLED
         if (firstEnableLoop) {
             // 'wakes up' the shields so they show enable state
@@ -230,6 +216,7 @@ void RobotOpenClass::syncDS() {
         }
     }
     else {
+        _controller_state = 2;
         // DISABLED
         if (!firstEnableLoop) {
             onDisable();
@@ -247,6 +234,9 @@ void RobotOpenClass::syncDS() {
         whileEnabled();
     if (!_enabled && whileDisabled)
         whileDisabled();
+
+    // send update to coprocessor
+    xmitCoprocessor();
 
     // run timed tasks
     if ((millis() - _lastTimedLoop) > TIMED_TASK_INTERVAL_MS) {
@@ -434,9 +424,6 @@ void RobotOpenClass::parsePacket() {
                     break;
                 }      
               }
-              // send update to shields
-              xmitPWM();
-              xmitSolenoid();
               break;
 
             case 's': // set parameter packet
@@ -468,7 +455,7 @@ void RobotOpenClass::publishDS() {
     _dashboardPacketQueued = false;
 }
 
-void RobotOpenClass::writePWM(byte channel, byte pwmVal) {
+void RobotOpenClass::writePWM(byte channel, uint8_t pwmVal) {
     if (channel < 12) {
         _pwmStates[channel] = pwmVal;
     }
