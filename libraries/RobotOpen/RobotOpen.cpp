@@ -461,6 +461,15 @@ void RobotOpenClass::writePWM(byte channel, uint8_t pwmVal) {
     }
 }
 
+int32_t RobotOpenClass::readEncoder(byte channel) {
+    // TODO
+    return 0;
+}
+
+void RobotOpenClass::resetEncoder(byte channel) {
+    // TODO
+}
+
 void RobotOpenClass::writeSolenoid(byte channel, uint8_t state) {
     if (channel < 8) {
         _solenoidStates[channel] = state;

@@ -74,6 +74,9 @@ public:
     static void writePWM(byte channel, byte pwmVal);
     static void writeSolenoid(byte channel, uint8_t state);
 
+    static int32_t readEncoder(byte channel);
+    static void resetEncoder(byte channel);
+
     static void addParameter(ROParameter* param);
 
 private:
