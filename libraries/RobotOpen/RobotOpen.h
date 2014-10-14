@@ -14,6 +14,7 @@
 #include <ROStatus.h>
 #include <ROTimer.h>
 #include <ROParameter.h>
+#include <ROEncoder.h>
 #include "IPAddress.h"
 
 // Sidecar Mapping
