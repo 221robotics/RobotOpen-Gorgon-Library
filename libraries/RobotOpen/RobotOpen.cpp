@@ -462,12 +462,39 @@ void RobotOpenClass::writePWM(byte channel, uint8_t pwmVal) {
 }
 
 int32_t RobotOpenClass::readEncoder(byte channel) {
-    // TODO
-    return 0;
+    // enable Slave Select
+    digitalWrite(9, LOW);
+
+    // read encoder OPCODE
+    SPI.transfer(0x02);
+
+    // send encoder channel
+    SPI.transfer(channel);
+
+    uint8_t encoderCount[4];
+
+    for (int i=0; i<4; i++) {
+        encoderCount[i] = SPI.transfer(0xFF);
+    }
+
+    // disable Slave Select
+    digitalWrite(9, HIGH);
+
+    return (*((int32_t *)encoderCount));
 }
 
 void RobotOpenClass::resetEncoder(byte channel) {
-    // TODO
+    // enable Slave Select
+    digitalWrite(9, LOW);
+
+    // reset encoder OPCODE
+    SPI.transfer(0x03);
+
+    // send encoder channel
+    SPI.transfer(channel);
+
+    // disable Slave Select
+    digitalWrite(9, HIGH);
 }
 
 void RobotOpenClass::writeSolenoid(byte channel, uint8_t state) {
