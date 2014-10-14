@@ -173,7 +173,7 @@ void RobotOpenClass::xmitCoprocessor() {
     digitalWrite(9, LOW);
 
     // set controller state OPCODE
-    SPI.transfer(0x04);
+    SPI.transfer(0x01);
   
     // write PWMs
     for (uint8_t i=0; i<12; i++) {
