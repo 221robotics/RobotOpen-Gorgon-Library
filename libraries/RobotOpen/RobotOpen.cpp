@@ -139,7 +139,7 @@ void RobotOpenClass::begin(LoopCallback *enabledCallback, LoopCallback *disabled
     Udp.begin(PORT);
 
     // for use w/ stm32
-    SPI.setClockDivider(SPI_CLOCK_DIV2);
+    SPI.setClockDivider(SPI_CLOCK_DIV8);
 
     // setup DS packet
     _outgoingPacket[0] = 'd';
@@ -461,7 +461,7 @@ void RobotOpenClass::writePWM(byte channel, uint8_t pwmVal) {
     }
 }
 
-int32_t RobotOpenClass::readEncoder(byte channel) {
+long RobotOpenClass::readEncoder(byte channel) {
     // enable Slave Select
     digitalWrite(9, LOW);
 
@@ -471,16 +471,12 @@ int32_t RobotOpenClass::readEncoder(byte channel) {
     // send encoder channel
     SPI.transfer(channel);
 
-    uint8_t encoderCount[4];
-
-    for (int i=0; i<4; i++) {
-        encoderCount[i] = SPI.transfer(0xFF);
-    }
+    long encoderCount = (SPI.transfer(0xFF) << 24) | (SPI.transfer(0xFF) << 16) | (SPI.transfer(0xFF) << 8) | (SPI.transfer(0xFF) & 0xFF);
 
     // disable Slave Select
     digitalWrite(9, HIGH);
 
-    return (*((int32_t *)encoderCount));
+    return encoderCount;
 }
 
 void RobotOpenClass::resetEncoder(byte channel) {

@@ -7,7 +7,7 @@ ROEncoder::ROEncoder(uint8_t channel)
     _channel = channel;
 }
 
-int32_t ROEncoder::read() {
+long ROEncoder::read() {
 	return RobotOpen.readEncoder(_channel);
 }
 

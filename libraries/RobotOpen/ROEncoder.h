@@ -9,7 +9,7 @@ class ROEncoder
   public:
     ROEncoder(uint8_t);
 
-    int32_t read();
+    long read();
     void reset();
     
   private:
