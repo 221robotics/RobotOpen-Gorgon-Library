@@ -7,15 +7,15 @@
 /* Constructor */
 ROBoolParameter::ROBoolParameter(String _label, uint8_t _location)
 {
-  label = _label;
-  type = BOOL;
-  location = _location;    // Allocate space for up to 4 bytes of data
-  RobotOpen.addParameter((ROParameter*)this);  // Register parameter with main RobotOpen class
+	label = _label;
+	type = BOOL;
+	location = _location;	   // Allocate space for up to 4 bytes of data
+	RobotOpen.addParameter((ROParameter*)this);  // Register parameter with main RobotOpen class
 }
 
 // getter
 boolean ROBoolParameter::get() {
-  return (EEPROM.read(location * 4) > 0);
+	return (EEPROM.read(location * 4) > 0);
 }
 
 

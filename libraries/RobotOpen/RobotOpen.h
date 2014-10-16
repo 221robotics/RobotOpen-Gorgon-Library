@@ -9,29 +9,16 @@
 #include "Arduino.h"
 #include <ROJoystick.h>
 #include <ROPWM.h>
+#include <ROAnalog.h>
+#include <RODigitalIO.h>
 #include <RODashboard.h>
 #include <ROSolenoid.h>
 #include <ROStatus.h>
 #include <ROTimer.h>
 #include <ROParameter.h>
 #include <ROEncoder.h>
+#include <ROWebServer.h>
 #include "IPAddress.h"
-
-// Sidecar Mapping
-#define ANALOG0 0
-#define ANALOG1 1
-#define ANALOG2 2
-#define ANALOG3 3
-#define ANALOG4 4
-#define ANALOG5 5
-#define SIDECAR_DIGITAL1 7
-#define SIDECAR_DIGITAL2 6
-#define SIDECAR_DIGITAL3 5
-#define SIDECAR_DIGITAL4 4
-#define SIDECAR_DIGITAL5 3
-#define SIDECAR_DIGITAL6 2
-#define SIDECAR_DIGITAL7 9
-#define SIDECAR_DIGITAL8 8
 
 
 

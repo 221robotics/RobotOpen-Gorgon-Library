@@ -8,6 +8,8 @@
 
 class ROStatusClass {
 public:
+    static float batteryReading();
+
 	static boolean isEnabled();
 
 	static int uptimeSeconds();

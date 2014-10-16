@@ -65,7 +65,7 @@ void enabled() {
 
 
 /* This is called while the robot is disabled
- * PWMs and Solenoids are automatically disabled
+ * All outputs are automatically disabled (PWM, Solenoid, Digital Outs)
  */
 void disabled() {
   // safety code

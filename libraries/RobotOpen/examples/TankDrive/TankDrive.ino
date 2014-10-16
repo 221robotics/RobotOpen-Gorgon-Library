@@ -7,6 +7,8 @@
 
 /* I/O Setup */
 ROJoystick usb1(1);         // Joystick #1
+ROEncoder leftEncoder(0);   // Encoder Channel 0
+ROEncoder rightEncoder(1);  // Encoder Channel 1
 ROPWM leftDrive(0);
 ROPWM rightDrive(1);
 
@@ -31,7 +33,7 @@ void enabled() {
 
 
 /* This is called while the robot is disabled
- * PWMs and Solenoids are automatically disabled
+ * All outputs are automatically disabled (PWM, Solenoid, Digital Outs)
  */
 void disabled() {
   // safety code
@@ -42,6 +44,10 @@ void disabled() {
  * This is also a good spot to put driver station publish code
  */
 void timedtasks() {
+  // encoders can also be reset to zero by calling encoderName.reset();
+  RODashboard.publish("Left Encoder", leftEncoder.read());
+  RODashboard.publish("Right Encoder", rightEncoder.read());
+  
   RODashboard.publish("Uptime Seconds", ROStatus.uptimeSeconds());
 }
 

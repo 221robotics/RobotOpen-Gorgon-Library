@@ -6,9 +6,9 @@
 
 
 /* I/O Setup */
-ROJoystick usb1(1);         // Joystick #1
-ROPWM leftDrive(0);
-ROPWM rightDrive(1);
+ROJoystick usb1(1);              // Joystick #1
+RODigitalIO dig0In(0, INPUT);    // DIO channel 0, input mode
+RODigitalIO dig1Out(1, OUTPUT);  // DIO channel 1, output mode
 
 
 void setup()
@@ -22,11 +22,10 @@ void setup()
  * should live here that allows the robot to operate
  */
 void enabled() {
-  int leftPower = constrain((usb1.rightY() + usb1.rightX()), 0, 255);
-  int rightPower = constrain((usb1.rightY() - usb1.rightX()), 0, 255);
-
-  leftDrive.write(leftPower);
-  rightDrive.write(rightPower);
+  if (usb1.btnA())
+    dig1Out.on();
+  else
+    dig1Out.off();
 }
 
 
@@ -42,6 +41,8 @@ void disabled() {
  * This is also a good spot to put driver station publish code
  */
 void timedtasks() {
+  if (dig0In.read())
+    RODashboard.debug("Digital 0 High!");
   RODashboard.publish("Uptime Seconds", ROStatus.uptimeSeconds());
 }
 

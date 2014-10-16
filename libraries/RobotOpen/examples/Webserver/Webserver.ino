@@ -3,17 +3,15 @@
 #include <EEPROM.h>
 #include <RobotOpen.h>
 
+ROWebServer serve;
 
-
+ROAnalog analog0(0);
 
 void setup()
 {
   /* Initiate comms */
   RobotOpen.begin(&enabled, &disabled, &timedtasks);
-
-  // Configure Digital I/O
-  pinMode(SIDECAR_DIGITAL1, OUTPUT);
-  pinMode(SIDECAR_DIGITAL2, OUTPUT);
+  serve.begin_server();
 }
 
 
@@ -21,17 +19,16 @@ void setup()
  * should live here that allows the robot to operate
  */
 void enabled() {
-  digitalWrite(SIDECAR_DIGITAL1, HIGH);
-  digitalWrite(SIDECAR_DIGITAL2, HIGH);
+  // don't do anything
 }
 
 
 /* This is called while the robot is disabled
- * PWMs and Solenoids are automatically disabled
+ * All outputs are automatically disabled (PWM, Solenoid, Digital Outs)
  */
 void disabled() {
-  digitalWrite(SIDECAR_DIGITAL1, LOW);
-  digitalWrite(SIDECAR_DIGITAL2, LOW);
+  serve.add_field("Analog 0", (5.0*(analog0.read()/1024.0))/0.01, 0);
+  serve.webserver_loop();
 }
 
 
@@ -39,8 +36,6 @@ void disabled() {
  * This is also a good spot to put driver station publish code
  */
 void timedtasks() {
-  RODashboard.publish("Analog 0", analogRead(ANALOG0));
-  RODashboard.publish("Uptime Seconds", ROStatus.uptimeSeconds());
 }
 
 
