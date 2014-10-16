@@ -4,7 +4,7 @@
 /* Constructor */
 ROEncoder::ROEncoder(uint8_t channel)
 {
-    _channel = channel;
+    _channel = channel < 8 ? channel : 7;
 }
 
 long ROEncoder::read() {

@@ -55,7 +55,6 @@ static int connection_timeout = 200;
 
 static ROParameter* params[100];
 static unsigned char paramsLength = 0;
-static boolean firstEnableLoop = true;
 
 /* SENT VIA SPI TO COPROCESSOR */
 static uint8_t _pwmStates[12];
@@ -172,6 +171,9 @@ void RobotOpenClass::xmitCoprocessor() {
     // enable Slave Select
     digitalWrite(9, LOW);
 
+    // coprocessor activate
+    SPI.transfer(0xFF);
+
     // set controller state OPCODE
     SPI.transfer(0x01);
   
@@ -201,27 +203,16 @@ void RobotOpenClass::syncDS() {
         _enabled = false;
         _controller_state = 1;
         // NO CONNECTION
-        if (!firstEnableLoop) {
-            onDisable();
-            firstEnableLoop = true;
-        }
+        onDisable();
 	}
     else if (_enabled == true) {
-        _controller_state = 3;
         // ENABLED
-        if (firstEnableLoop) {
-            // 'wakes up' the shields so they show enable state
-            onDisable();
-            firstEnableLoop = false;
-        }
+        _controller_state = 3;
     }
     else {
         _controller_state = 2;
         // DISABLED
-        if (!firstEnableLoop) {
-            onDisable();
-            firstEnableLoop = true;
-        }
+        onDisable();
     }
 
     // Process any data sitting in the buffer
@@ -465,13 +456,20 @@ long RobotOpenClass::readEncoder(byte channel) {
     // enable Slave Select
     digitalWrite(9, LOW);
 
+    // coprocessor activate
+    SPI.transfer(0xFF);
+
     // read encoder OPCODE
     SPI.transfer(0x02);
 
     // send encoder channel
     SPI.transfer(channel);
 
-    long encoderCount = (SPI.transfer(0xFF) << 24) | (SPI.transfer(0xFF) << 16) | (SPI.transfer(0xFF) << 8) | (SPI.transfer(0xFF) & 0xFF);
+    // coprocessor buffer byte
+    SPI.transfer(0x04);
+
+    // grab encoder count off SPI bus
+    long encoderCount = (SPI.transfer(0x04) << 24) | (SPI.transfer(0x04) << 16) | (SPI.transfer(0x04) << 8) | (SPI.transfer(0x04) & 0xFF);
 
     // disable Slave Select
     digitalWrite(9, HIGH);
@@ -482,6 +480,9 @@ long RobotOpenClass::readEncoder(byte channel) {
 void RobotOpenClass::resetEncoder(byte channel) {
     // enable Slave Select
     digitalWrite(9, LOW);
+
+    // coprocessor activate
+    SPI.transfer(0xFF);
 
     // reset encoder OPCODE
     SPI.transfer(0x03);
