@@ -130,8 +130,8 @@ void RobotOpenClass::begin(LoopCallback *enabledCallback, LoopCallback *disabled
     whileTimedTasks = timedtasksCallback;
 
     // we do NOT want to talk to the coprocessor yet
-    pinMode(10, OUTPUT);
-    digitalWrite(10, HIGH);
+    pinMode(9, OUTPUT);
+    digitalWrite(9, HIGH);
 
     // Start Ethernet, UDP
     Ethernet.begin(mac,ip);
@@ -169,7 +169,7 @@ void RobotOpenClass::xmitCoprocessor() {
     // update controller state w/ coprocessor
 
     // enable Slave Select
-    digitalWrite(10, LOW);
+    digitalWrite(9, LOW);
 
     // coprocessor activate
     SPI.transfer(0xFF);
@@ -191,7 +191,7 @@ void RobotOpenClass::xmitCoprocessor() {
     SPI.transfer(_controller_state);
 
     // disable Slave Select
-    digitalWrite(10, HIGH);
+    digitalWrite(9, HIGH);
 }
 
 void RobotOpenClass::syncDS() {
@@ -454,7 +454,7 @@ void RobotOpenClass::writePWM(byte channel, uint8_t pwmVal) {
 
 long RobotOpenClass::readEncoder(byte channel) {
     // enable Slave Select
-    digitalWrite(10, LOW);
+    digitalWrite(9, LOW);
 
     // coprocessor activate
     SPI.transfer(0xFF);
@@ -472,14 +472,14 @@ long RobotOpenClass::readEncoder(byte channel) {
     long encoderCount = (SPI.transfer(0x04) << 24) | (SPI.transfer(0x04) << 16) | (SPI.transfer(0x04) << 8) | (SPI.transfer(0x04) & 0xFF);
 
     // disable Slave Select
-    digitalWrite(10, HIGH);
+    digitalWrite(9, HIGH);
 
     return encoderCount;
 }
 
 void RobotOpenClass::resetEncoder(byte channel) {
     // enable Slave Select
-    digitalWrite(10, LOW);
+    digitalWrite(9, LOW);
 
     // coprocessor activate
     SPI.transfer(0xFF);
@@ -491,7 +491,7 @@ void RobotOpenClass::resetEncoder(byte channel) {
     SPI.transfer(channel);
 
     // disable Slave Select
-    digitalWrite(10, HIGH);
+    digitalWrite(9, HIGH);
 }
 
 void RobotOpenClass::writeSolenoid(byte channel, uint8_t state) {
