@@ -11,7 +11,7 @@ long ROEncoder::read() {
 	return RobotOpen.readEncoder(_channel);
 }
 
-long ROEncoder::readCPS() {
+float ROEncoder::readCPS() {
 	return RobotOpen.readEncoderCPS(_channel);
 }
 

@@ -152,6 +152,20 @@ void RobotOpenClass::begin(LoopCallback *enabledCallback, LoopCallback *disabled
     wdt_enable(WDTO_250MS);
 }
 
+void RobotOpenClass::beginCoprocessor() {
+    // enable Slave Select
+    digitalWrite(9, LOW);
+
+    // coprocessor activate
+    SPI.transfer(0xFF);
+    SPI.transfer(0x7F);
+}
+
+void RobotOpenClass::endCoprocessor() {
+    // disable Slave Select
+    digitalWrite(9, HIGH);
+}
+
 // This gets called once when the robot becomes disconnected or disabled
 void RobotOpenClass::onDisable() {
     // neutral out all PWMs
@@ -166,17 +180,13 @@ void RobotOpenClass::onDisable() {
 }
 
 void RobotOpenClass::xmitCoprocessor() {
-    // update controller state w/ coprocessor
+    // * update controller state w/ coprocessor
 
-    // enable Slave Select
-    digitalWrite(9, LOW);
-
-    // coprocessor activate
-    SPI.transfer(0xFF);
-    SPI.transfer(0x7F);
+    // begin coprocessor transaction
+    beginCoprocessor();
 
     // set controller state OPCODE
-    SPI.transfer(0x01);
+    SPI.transfer(COPROCESSOR_OP_SET_CONTROLLER_STATE);
   
     // write PWMs
     for (uint8_t i=0; i<12; i++) {
@@ -191,29 +201,25 @@ void RobotOpenClass::xmitCoprocessor() {
     // write LED state
     SPI.transfer(_controller_state);
 
-    // disable Slave Select
-    digitalWrite(9, HIGH);
+    // end coprocessor transaction
+    endCoprocessor();
 }
 
 void RobotOpenClass::attachDetachPWM(byte pwmChannel, bool attach) {
-    // enable Slave Select
-    digitalWrite(9, LOW);
-
-    // coprocessor activate
-    SPI.transfer(0xFF);
-    SPI.transfer(0x7F);
+    // begin coprocessor transaction
+    beginCoprocessor();
 
     // attach/detach OPCODE
     if (attach)
-        SPI.transfer(0x06);
+        SPI.transfer(COPROCESSOR_OP_ATTACH_PWM);
     else
-        SPI.transfer(0x07);
+        SPI.transfer(COPROCESSOR_OP_DETACH_PWM);
 
     // write PWM chan
     SPI.transfer(pwmChannel);
 
-    // disable Slave Select
-    digitalWrite(9, HIGH);
+    // end coprocessor transaction
+    endCoprocessor();
 }
 
 void RobotOpenClass::detachPWM(byte pwmChannel) {
@@ -483,15 +489,11 @@ void RobotOpenClass::writePWM(byte channel, uint8_t pwmVal) {
 }
 
 long RobotOpenClass::readEncoder(byte channel) {
-    // enable Slave Select
-    digitalWrite(9, LOW);
-
-    // coprocessor activate
-    SPI.transfer(0xFF);
-    SPI.transfer(0x7F);
+    // begin coprocessor transaction
+    beginCoprocessor();
 
     // read encoder OPCODE
-    SPI.transfer(0x02);
+    SPI.transfer(COPROCESSOR_OP_GET_ENCODER);
 
     // send encoder channel
     SPI.transfer(channel);
@@ -502,22 +504,18 @@ long RobotOpenClass::readEncoder(byte channel) {
     // grab encoder count off SPI bus
     long encoderCount = (SPI.transfer(0x04) << 24) | (SPI.transfer(0x04) << 16) | (SPI.transfer(0x04) << 8) | (SPI.transfer(0x04) & 0xFF);
 
-    // disable Slave Select
-    digitalWrite(9, HIGH);
+    // end coprocessor transaction
+    endCoprocessor();
 
     return encoderCount;
 }
 
-long RobotOpenClass::readEncoderCPS(byte channel) {
-    // enable Slave Select
-    digitalWrite(9, LOW);
-
-    // coprocessor activate
-    SPI.transfer(0xFF);
-    SPI.transfer(0x7F);
+float RobotOpenClass::readEncoderCPS(byte channel) {
+    // begin coprocessor transaction
+    beginCoprocessor();
 
     // read encoder CPS OPCODE
-    SPI.transfer(0x04);
+    SPI.transfer(COPROCESSOR_OP_GET_ENCODER_CPS);
 
     // send encoder channel
     SPI.transfer(channel);
@@ -526,24 +524,27 @@ long RobotOpenClass::readEncoderCPS(byte channel) {
     SPI.transfer(0x04);
 
     // grab encoder count off SPI bus
-    long encoderCount = (SPI.transfer(0x04) << 24) | (SPI.transfer(0x04) << 16) | (SPI.transfer(0x04) << 8) | (SPI.transfer(0x04) & 0xFF);
+    union {
+        float f;
+        uint8_t b[4];
+    } u;
+    u.b[0] = SPI.transfer(0x04);
+    u.b[1] = SPI.transfer(0x04);
+    u.b[2] = SPI.transfer(0x04);
+    u.b[3] = SPI.transfer(0x04);
 
-    // disable Slave Select
-    digitalWrite(9, HIGH);
+    // end coprocessor transaction
+    endCoprocessor();
 
-    return encoderCount;
+    return u.f;
 }
 
 void RobotOpenClass::setEncoderSensitivity(byte channel, uint16_t sensitivity) {
-    // enable Slave Select
-    digitalWrite(9, LOW);
-
-    // coprocessor activate
-    SPI.transfer(0xFF);
-    SPI.transfer(0x7F);
+    // begin coprocessor transaction
+    beginCoprocessor();
 
     // set encoder sensitivty OPCODE
-    SPI.transfer(0x05);
+    SPI.transfer(COPROCESSOR_OP_SET_ENCODER_SENSITIVITY);
 
     // send encoder channel
     SPI.transfer(channel);
@@ -552,26 +553,22 @@ void RobotOpenClass::setEncoderSensitivity(byte channel, uint16_t sensitivity) {
     SPI.transfer((sensitivity << 8) & 0xFF);
     SPI.transfer(sensitivity & 0xFF);
 
-    // disable Slave Select
-    digitalWrite(9, HIGH);
+    // end coprocessor transaction
+    endCoprocessor();
 }
 
 void RobotOpenClass::resetEncoder(byte channel) {
-    // enable Slave Select
-    digitalWrite(9, LOW);
-
-    // coprocessor activate
-    SPI.transfer(0xFF);
-    SPI.transfer(0x7F);
+    // begin coprocessor transaction
+    beginCoprocessor();
 
     // reset encoder OPCODE
-    SPI.transfer(0x03);
+    SPI.transfer(COPROCESSOR_OP_RESET_ENCODER);
 
     // send encoder channel
     SPI.transfer(channel);
 
-    // disable Slave Select
-    digitalWrite(9, HIGH);
+    // end coprocessor transaction
+    endCoprocessor();
 }
 
 void RobotOpenClass::writeSolenoid(byte channel, uint8_t state) {
