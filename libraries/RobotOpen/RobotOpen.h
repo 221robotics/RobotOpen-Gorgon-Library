@@ -62,9 +62,14 @@ public:
     static void writeSolenoid(byte channel, uint8_t state);
 
     static int32_t readEncoder(byte channel);
+    static int32_t readEncoderCPS(byte channel);
+    static void setEncoderSensitivity(byte channel, uint16_t sensitivity);
     static void resetEncoder(byte channel);
 
     static void addParameter(ROParameter* param);
+
+    static void detachPWM(byte pwmChannel);
+    static void attachPWM(byte pwmChannel);
 
 private:
     // Dumps data back to the DS
@@ -75,6 +80,9 @@ private:
 
     // Parse out a DS packet
     static void parsePacket();
+
+    // Attach or Detach a PWM pin
+    static void attachDetachPWM(byte pwmChannel, bool attach);
 
     // Grab UDP data
     static void handleData();

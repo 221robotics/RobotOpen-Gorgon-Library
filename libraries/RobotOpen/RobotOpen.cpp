@@ -173,6 +173,7 @@ void RobotOpenClass::xmitCoprocessor() {
 
     // coprocessor activate
     SPI.transfer(0xFF);
+    SPI.transfer(0x7F);
 
     // set controller state OPCODE
     SPI.transfer(0x01);
@@ -192,6 +193,35 @@ void RobotOpenClass::xmitCoprocessor() {
 
     // disable Slave Select
     digitalWrite(9, HIGH);
+}
+
+void RobotOpenClass::attachDetachPWM(byte pwmChannel, bool attach) {
+    // enable Slave Select
+    digitalWrite(9, LOW);
+
+    // coprocessor activate
+    SPI.transfer(0xFF);
+    SPI.transfer(0x7F);
+
+    // attach/detach OPCODE
+    if (attach)
+        SPI.transfer(0x06);
+    else
+        SPI.transfer(0x07);
+
+    // write PWM chan
+    SPI.transfer(pwmChannel);
+
+    // disable Slave Select
+    digitalWrite(9, HIGH);
+}
+
+void RobotOpenClass::detachPWM(byte pwmChannel) {
+    attachDetachPWM(pwmChannel, false);
+}
+
+void RobotOpenClass::attachPWM(byte pwmChannel) {
+    attachDetachPWM(pwmChannel, true);
 }
 
 void RobotOpenClass::syncDS() {
@@ -458,6 +488,7 @@ long RobotOpenClass::readEncoder(byte channel) {
 
     // coprocessor activate
     SPI.transfer(0xFF);
+    SPI.transfer(0x7F);
 
     // read encoder OPCODE
     SPI.transfer(0x02);
@@ -477,12 +508,61 @@ long RobotOpenClass::readEncoder(byte channel) {
     return encoderCount;
 }
 
+long RobotOpenClass::readEncoderCPS(byte channel) {
+    // enable Slave Select
+    digitalWrite(9, LOW);
+
+    // coprocessor activate
+    SPI.transfer(0xFF);
+    SPI.transfer(0x7F);
+
+    // read encoder CPS OPCODE
+    SPI.transfer(0x04);
+
+    // send encoder channel
+    SPI.transfer(channel);
+
+    // coprocessor buffer byte
+    SPI.transfer(0x04);
+
+    // grab encoder count off SPI bus
+    long encoderCount = (SPI.transfer(0x04) << 24) | (SPI.transfer(0x04) << 16) | (SPI.transfer(0x04) << 8) | (SPI.transfer(0x04) & 0xFF);
+
+    // disable Slave Select
+    digitalWrite(9, HIGH);
+
+    return encoderCount;
+}
+
+void RobotOpenClass::setEncoderSensitivity(byte channel, uint16_t sensitivity) {
+    // enable Slave Select
+    digitalWrite(9, LOW);
+
+    // coprocessor activate
+    SPI.transfer(0xFF);
+    SPI.transfer(0x7F);
+
+    // set encoder sensitivty OPCODE
+    SPI.transfer(0x05);
+
+    // send encoder channel
+    SPI.transfer(channel);
+
+    // send sensitivty
+    SPI.transfer((sensitivity << 8) & 0xFF);
+    SPI.transfer(sensitivity & 0xFF);
+
+    // disable Slave Select
+    digitalWrite(9, HIGH);
+}
+
 void RobotOpenClass::resetEncoder(byte channel) {
     // enable Slave Select
     digitalWrite(9, LOW);
 
     // coprocessor activate
     SPI.transfer(0xFF);
+    SPI.transfer(0x7F);
 
     // reset encoder OPCODE
     SPI.transfer(0x03);

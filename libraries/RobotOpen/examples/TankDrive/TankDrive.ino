@@ -27,6 +27,8 @@ void enabled() {
   // Constantly update PWM values with joystick values
   // Analog sticks feed back values from 0-255
   // 255 - usb1.leftY() to invert a drive
+  leftDrive.attach();
+  rightDrive.attach();
   leftDrive.write(usb1.leftY());
   rightDrive.write(usb1.rightY());
 }
@@ -46,7 +48,9 @@ void disabled() {
 void timedtasks() {
   // encoders can also be reset to zero by calling encoderName.reset();
   RODashboard.publish("Left Encoder", leftEncoder.read());
+  RODashboard.publish("Left Encoder CPS", leftEncoder.readCPS());
   RODashboard.publish("Right Encoder", rightEncoder.read());
+  RODashboard.publish("Right Encoder CPS", rightEncoder.readCPS());
   
   RODashboard.publish("Uptime Seconds", ROStatus.uptimeSeconds());
 }
