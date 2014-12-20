@@ -16,6 +16,7 @@ float ROEncoder::readCPS() {
 }
 
 void ROEncoder::setSensitivity(uint16_t sensitivity) {
+	// default is 4
 	RobotOpen.setEncoderSensitivity(_channel, sensitivity);
 }
 

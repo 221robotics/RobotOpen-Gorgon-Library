@@ -16,11 +16,16 @@
 // Port config (UDP)
 #define PORT 22211
 
-// The interval for timed tasks to run
-#define TIMED_TASK_INTERVAL_MS 100
+// The interval for how often debug strings are transmitted
+#define DEBUG_DATA_INTERVAL_MS 100
 
 // The interval for publishing DS data
-#define DS_INTERVAL_MS 100
+#define DS_PUBLISH_INTERVAL_MS 100
+
+// Max packet sizes
+#define INCOMING_PACKET_BUFFER_SIZE 128 // 128 allows for 25 parameters and 4 joysticks to be sent
+#define OUTGOING_PACKET_BUFFER_SIZE 384
+#define MAX_PARAMETERS              25  // 1 header byte + (5 * 25) + 2 crc bytes = 128 bytes max
 
 // Set the MAC address and static IP for the TCP/IP stack
 static byte mac[] = { 0xD4, 0x40, 0x39, 0xFB, 0xE0, 0x33 };
@@ -38,29 +43,29 @@ static LoopCallback *whileEnabled;
 static LoopCallback *whileDisabled;
 static LoopCallback *whileTimedTasks;
 
-// Hold DS data
-static boolean _dashboardPacketQueued = false;
-static char _outgoingPacket[384];      // Data to publish to DS is stored into this array
-static unsigned int _outgoingPacketSize = 1;
+// hold onto references to parameter objects
+static ROParameter* params[MAX_PARAMETERS];
+static unsigned char paramsLength = 0;
+
+// Hold DS/param data
+static boolean _acceptingDebugData = false;
+static boolean _acceptingDSData = false;
+static char _outgoingPacket[OUTGOING_PACKET_BUFFER_SIZE];      // Data to publish to DS is stored into this array
+static unsigned int _outgoingPacketSize = 0;
 
 // Robot specific stuff
 static boolean _enabled = false;            // Tells us if the robot is enabled or disabled
 static uint8_t _controller_state = 1;       // 1 - NC, 2 - Disabled, 3 - Enabled (sent over SPI to coprocessor)
-static unsigned long _lastPacket = 0;       // Keeps track of the last time (ms) we received data
-static unsigned long _lastTimedLoop = 0;    // Keeps track of the last time the timed loop ran
-static unsigned long _lastDSLoop = 0;       // Keeps track of the last time we published DS data
+static unsigned long _lastControlPacket = 0;       // Keeps track of the last time (ms) we received data
+static unsigned long _lastDebugDataPublish = 0;    // Keeps track of the last time the timed loop ran
+static unsigned long _lastDSPublish = 0;       // Keeps track of the last time we published DS data
 
 // milliseconds without receiving DS packet before we consider ourselves 'disconnected'
 static int connection_timeout = 200;
 
-static ROParameter* params[100];
-static unsigned char paramsLength = 0;
-
-/* SENT VIA SPI TO COPROCESSOR */
+// sent via SPI to coprocessor
 static uint8_t _pwmStates[12];
 static uint8_t _solenoidStates[8];
-
-static boolean acceptingDebugData = false;
 
 
 
@@ -103,8 +108,8 @@ PROGMEM const short crctab[] =
 
 
 // Networking support
-static unsigned char _packetBuffer[384];
-static unsigned int _packetBufferSize = 0;
+static unsigned char _incomingPacket[INCOMING_PACKET_BUFFER_SIZE];
+static unsigned int _incomingPacketSize = 0;
 static IPAddress _remoteIp;                     // holds received packet's originating IP
 static unsigned int _remotePort = 0;            // holds received packet's originating port
 
@@ -140,10 +145,8 @@ void RobotOpenClass::begin(LoopCallback *enabledCallback, LoopCallback *disabled
     // for use w/ stm32
     SPI.setClockDivider(SPI_CLOCK_DIV16);
 
-    // setup DS packet
-    _outgoingPacket[0] = 'd';
-
-    delay(250); // Give Ethernet time to get ready
+    // Give Ethernet time to get ready
+    delay(250);
 
     // zero out solenoids and PWMs
     onDisable();
@@ -180,7 +183,7 @@ void RobotOpenClass::onDisable() {
 }
 
 void RobotOpenClass::xmitCoprocessor() {
-    // * update controller state w/ coprocessor
+    // this function sends PWM, solenoid, and enable state to the coprocessor
 
     // begin coprocessor transaction
     beginCoprocessor();
@@ -235,7 +238,7 @@ void RobotOpenClass::syncDS() {
     wdt_reset();
   
     // detect disconnect
-    if ((millis() - _lastPacket) > connection_timeout) {  // Disable the robot, drop the connection
+    if ((millis() - _lastControlPacket) > connection_timeout) {  // Disable the robot, drop the connection
         _enabled = false;
         _controller_state = 1;
         // NO CONNECTION
@@ -254,39 +257,50 @@ void RobotOpenClass::syncDS() {
     // Process any data sitting in the buffer
     handleData();
 
-    // Run user provided loops
+    // send update to coprocessor
+    xmitCoprocessor();
+
+    // allow debug data to be published if the interval has expired
+    if ((millis() - _lastDebugDataPublish) > DEBUG_DATA_INTERVAL_MS) {
+        _acceptingDebugData = true;
+        _lastDebugDataPublish = millis();
+    }
+
+    // allow DS data to be published this loop if the interval has expired
+    if ((millis() - _lastDSPublish) > DS_PUBLISH_INTERVAL_MS) {
+        // add dashboard header byte
+        _outgoingPacket[0] = 'd';
+        _outgoingPacketSize = 1;
+
+        _acceptingDSData = true;
+        _lastDSPublish = millis();
+    }
+
+    // Run user loops
     if (whileTimedTasks)
         whileTimedTasks();
     if (_enabled && whileEnabled)
         whileEnabled();
-    if (!_enabled && whileDisabled)
+    else if (!_enabled && whileDisabled)
         whileDisabled();
 
-    // send update to coprocessor
-    xmitCoprocessor();
+    // make sure we accept no more debug data until the next interval
+    _acceptingDebugData = false;
 
-    // run timed tasks
-    if ((millis() - _lastTimedLoop) > TIMED_TASK_INTERVAL_MS) {
-        acceptingDebugData = true;
-        _lastTimedLoop = millis();
+    // make sure we accept no more DS data until the next interval
+    _acceptingDSData = false;
+
+    // there is outgoing data to be sent, publish to DS
+    if (_outgoingPacketSize > 1) {
+        publishDS();
     } else {
-        acceptingDebugData = false;
-    }
-
-    // ensure we only accept values for the DS packet for one debug loop and that data was actually published
-    if (_outgoingPacketSize > 1)
-        _dashboardPacketQueued = true;
-
-    // publish DS data
-    if ((millis() - _lastDSLoop) > DS_INTERVAL_MS) { 
-        if (_outgoingPacketSize == 1 || _dashboardPacketQueued)
-            publishDS();
-        _lastDSLoop = millis();
+        // header byte can be ignored, we had nothing to publish
+        _outgoingPacketSize = 0;
     }
 }
 
 void RobotOpenClass::log(String data) {
-    if (acceptingDebugData) {
+    if (_acceptingDebugData) {
         int dataLength = data.length();
         char logData[dataLength+1];
 
@@ -312,8 +326,8 @@ unsigned int RobotOpenClass::calc_crc16(unsigned char *buf, unsigned short len) 
     return (crc);
 }
 
-boolean RobotOpenClass::publish(String id, unsigned char val) {
-    if (_outgoingPacketSize+3+id.length() <= 384 && !_dashboardPacketQueued) {
+boolean RobotOpenClass::publish(String id, byte val) {
+    if (_outgoingPacketSize+3+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & (3+id.length());  // length
         _outgoingPacket[_outgoingPacketSize++] = 'c'; // type
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & val;  // value
@@ -327,7 +341,7 @@ boolean RobotOpenClass::publish(String id, unsigned char val) {
 }
 
 boolean RobotOpenClass::publish(String id, int val) {
-    if (_outgoingPacketSize+4+id.length() <= 384 && !_dashboardPacketQueued) {
+    if (_outgoingPacketSize+4+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & (4+id.length());  // length
         _outgoingPacket[_outgoingPacketSize++] = 'i'; // type
         _outgoingPacket[_outgoingPacketSize++] = (val >> 8) & 0xFF;  // value
@@ -342,7 +356,7 @@ boolean RobotOpenClass::publish(String id, int val) {
 }
 
 boolean RobotOpenClass::publish(String id, long val) {
-    if (_outgoingPacketSize+6+id.length() <= 384 && !_dashboardPacketQueued) {
+    if (_outgoingPacketSize+6+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & (6+id.length());  // length
         _outgoingPacket[_outgoingPacketSize++] = 'l'; // type
         _outgoingPacket[_outgoingPacketSize++] = (val >> 24) & 0xFF;  // value
@@ -359,13 +373,13 @@ boolean RobotOpenClass::publish(String id, long val) {
 }
 
 boolean RobotOpenClass::publish(String id, float val) {
-    union u_tag {
-        byte b[4];
-        float fval;
-    } u;
-    u.fval = val;
+    if (_outgoingPacketSize+6+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
+        union u_tag {
+            byte b[4];
+            float fval;
+        } u;
+        u.fval = val;
 
-    if (_outgoingPacketSize+6+id.length() <= 384 && !_dashboardPacketQueued) {
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & (6+id.length());  // length
         _outgoingPacket[_outgoingPacketSize++] = 'f'; // type
         _outgoingPacket[_outgoingPacketSize++] = u.b[3];  // value
@@ -396,56 +410,56 @@ char* RobotOpenClass::getJoystick(char index) {
 
 // This function's purpose is to receive data and prepare it for parsing
 void RobotOpenClass::handleData() {
-    _packetBufferSize = Udp.parsePacket();
+    _incomingPacketSize = Udp.parsePacket();
     
     // If there's data, read the packet in
-    if (_packetBufferSize > 0) {
+    if (_incomingPacketSize > 0) {
         _remotePort = Udp.remotePort();
         _remoteIp = Udp.remoteIP();
-        Udp.read(_packetBuffer, 100);
+        Udp.read(_incomingPacket, INCOMING_PACKET_BUFFER_SIZE);
         parsePacket();  // Data is all set, time to parse through it
     }
 }
 
 void RobotOpenClass::parsePacket() {
     // calculate crc16
-    unsigned int crc16_recv = (_packetBuffer[_packetBufferSize - 2] << 8) | _packetBuffer[_packetBufferSize - 1];
+    unsigned int crc16_recv = (_incomingPacket[_incomingPacketSize - 2] << 8) | _incomingPacket[_incomingPacketSize - 1];
     
-    if (calc_crc16(_packetBuffer, _packetBufferSize - 2) == crc16_recv) {
+    if (calc_crc16(_incomingPacket, _incomingPacketSize - 2) == crc16_recv) {
         // control packet is 'c' + joystick data + crc16
-        int frameLength = (_packetBufferSize - 3);
+        int frameLength = (_incomingPacketSize - 3);
         int numParameters;
         int paramCount = 0;
 
         // VALID PACKET
-        switch (_packetBuffer[0]) {
+        switch (_incomingPacket[0]) {
             case 'h': // heartbeat
               _enabled = false;
-              _lastPacket = millis();
+              _lastControlPacket = millis();
               break;
 
             case 'c': // control packet
               _enabled = true;
-              _lastPacket = millis();
+              _lastControlPacket = millis();
               _total_joysticks = (int)(frameLength/24);
               int i;
 
               for (i = 0; i < frameLength; i++) {
                 if (i >= 0 && i < 24) {
                     // 1st joystick
-                    _joy1[i] = _packetBuffer[i+1];
+                    _joy1[i] = _incomingPacket[i+1];
                 }
                 else if (i >= 24 && i < 48) {
                     // 2nd joystick
-                    _joy2[i-24] = _packetBuffer[i+1];
+                    _joy2[i-24] = _incomingPacket[i+1];
                 }
                 else if (i >= 48 && i < 72) {
                     // 3rd joystick
-                    _joy3[i-48] = _packetBuffer[i+1];
+                    _joy3[i-48] = _incomingPacket[i+1];
                 }
                 else if (i >= 72 && i < 96) {
                     // 4th joystick
-                    _joy4[i-72] = _packetBuffer[i+1];
+                    _joy4[i-72] = _incomingPacket[i+1];
                 }
                 else {
                     break;
@@ -456,7 +470,7 @@ void RobotOpenClass::parsePacket() {
             case 's': // set parameter packet
               numParameters = frameLength / 5;
               for (paramCount = 0; paramCount < numParameters; paramCount++) {
-                writeParameter((uint8_t)_packetBuffer[(paramCount*5)+1], ((paramCount*5)+2));
+                writeParameter((uint8_t)_incomingPacket[(paramCount*5)+1], ((paramCount*5)+2));
               }
               break;
 
@@ -478,8 +492,7 @@ void RobotOpenClass::publishDS() {
         Udp.endPacket();
     }
 
-    _outgoingPacketSize = 1;
-    _dashboardPacketQueued = false;
+    _outgoingPacketSize = 0;
 }
 
 void RobotOpenClass::writePWM(byte channel, uint8_t pwmVal) {
@@ -595,15 +608,17 @@ void RobotOpenClass::writeSolenoid(byte channel, uint8_t state) {
 }
 
 void RobotOpenClass::addParameter(ROParameter* param) {
-    params[paramsLength++] = param;
+    // add parameter if it fits
+    if (paramsLength < MAX_PARAMETERS)
+        params[paramsLength++] = param;
 }
 
 void RobotOpenClass::writeParameter(uint8_t location, unsigned int firstByte) {
     if (!_enabled) {
-        EEPROM.write((location * 4), _packetBuffer[firstByte]);
-        EEPROM.write((location * 4) + 1, _packetBuffer[firstByte+1]);
-        EEPROM.write((location * 4) + 2, _packetBuffer[firstByte+2]);
-        EEPROM.write((location * 4) + 3, _packetBuffer[firstByte+3]);
+        EEPROM.write((location * 4), _incomingPacket[firstByte]);
+        EEPROM.write((location * 4) + 1, _incomingPacket[firstByte+1]);
+        EEPROM.write((location * 4) + 2, _incomingPacket[firstByte+2]);
+        EEPROM.write((location * 4) + 3, _incomingPacket[firstByte+3]);
     }
 }
 
@@ -614,7 +629,7 @@ void RobotOpenClass::sendParameters() {
     for (int i = 0; i < paramsLength; i++) {
         ROParameter prm = *params[i];
 
-        if (_outgoingPacketSize+7+prm.label.length() <= 384) {
+        if (_outgoingPacketSize+7+prm.label.length() <= OUTGOING_PACKET_BUFFER_SIZE) {
             _outgoingPacket[_outgoingPacketSize++] = 0xFF & (7+prm.label.length());         // length
             _outgoingPacket[_outgoingPacketSize++] = 0xFF & (prm.location);                 // address (0-99)
             _outgoingPacket[_outgoingPacketSize++] = prm.type;                              // type
@@ -637,10 +652,8 @@ void RobotOpenClass::sendParameters() {
         Udp.endPacket();
     }
 
-    // reset the outgoing packet vars
-    _outgoingPacketSize = 1;
-    _dashboardPacketQueued = false;
-    _outgoingPacket[0] = 'd';
+    // no more outgoing data
+    _outgoingPacketSize = 0;
 }
 
 boolean RobotOpenClass::enabled() {
