@@ -138,7 +138,7 @@ void RobotOpenClass::begin(LoopCallback *enabledCallback, LoopCallback *disabled
     Udp.begin(PORT);
 
     // for use w/ stm32
-    SPI.setClockDivider(SPI_CLOCK_DIV8);
+    SPI.setClockDivider(SPI_CLOCK_DIV16);
 
     // setup DS packet
     _outgoingPacket[0] = 'd';
