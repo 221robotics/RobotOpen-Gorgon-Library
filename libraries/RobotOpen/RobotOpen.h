@@ -28,7 +28,8 @@
 #define COPROCESSOR_OP_SET_ENCODER_SENSITIVITY  0x05
 #define COPROCESSOR_OP_ATTACH_PWM               0x06
 #define COPROCESSOR_OP_DETACH_PWM               0x07
-#define COPROCESSOR_OP_RESET                    0x08
+#define COPROCESSOR_OP_SET_ENCODER_AVERAGE      0x08
+#define COPROCESSOR_OP_RESET                    0x64
 
 
 typedef void LoopCallback();
@@ -74,6 +75,7 @@ public:
     static int32_t readEncoder(byte channel);
     static float readEncoderCPS(byte channel);
     static void setEncoderSensitivity(byte channel, uint16_t sensitivity);
+    static void setEncoderSamplesToAverage(byte channel, uint8_t samples);
     static void resetEncoder(byte channel);
 
     static void addParameter(ROParameter* param);

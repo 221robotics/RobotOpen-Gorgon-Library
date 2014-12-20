@@ -19,6 +19,11 @@ void ROEncoder::setSensitivity(uint16_t sensitivity) {
 	RobotOpen.setEncoderSensitivity(_channel, sensitivity);
 }
 
+void ROEncoder::setCPSSamplesToAverage(uint8_t samples) {
+	// default is 9
+	RobotOpen.setEncoderSamplesToAverage(_channel, samples);
+}
+
 void ROEncoder::reset() {
 	RobotOpen.resetEncoder(_channel);
 }

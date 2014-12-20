@@ -557,6 +557,23 @@ void RobotOpenClass::setEncoderSensitivity(byte channel, uint16_t sensitivity) {
     endCoprocessor();
 }
 
+void RobotOpenClass::setEncoderSamplesToAverage(byte channel, uint8_t samples) {
+    // begin coprocessor transaction
+    beginCoprocessor();
+
+    // set encoder sensitivty OPCODE
+    SPI.transfer(COPROCESSOR_OP_SET_ENCODER_AVERAGE);
+
+    // send encoder channel
+    SPI.transfer(channel);
+
+    // send sensitivty
+    SPI.transfer(samples);
+
+    // end coprocessor transaction
+    endCoprocessor();
+}
+
 void RobotOpenClass::resetEncoder(byte channel) {
     // begin coprocessor transaction
     beginCoprocessor();

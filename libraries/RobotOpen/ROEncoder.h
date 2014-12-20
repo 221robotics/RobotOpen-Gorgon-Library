@@ -12,6 +12,7 @@ class ROEncoder
     long read();
     float readCPS();
     void setSensitivity(uint16_t sensitivity);
+    void setCPSSamplesToAverage(uint8_t samples);
     void reset();
     
   private:
