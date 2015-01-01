@@ -16,7 +16,6 @@ class ROPWM
     
   private:
     uint8_t _channel;
-    bool _attached;
 };
 
 

@@ -142,9 +142,6 @@ void RobotOpenClass::begin(LoopCallback *enabledCallback, LoopCallback *disabled
     Ethernet.begin(mac,ip);
     Udp.begin(PORT);
 
-    // for use w/ stm32
-    SPI.setClockDivider(SPI_CLOCK_DIV16);
-
     // Give Ethernet time to get ready
     delay(250);
 
@@ -156,6 +153,9 @@ void RobotOpenClass::begin(LoopCallback *enabledCallback, LoopCallback *disabled
 }
 
 void RobotOpenClass::beginCoprocessor() {
+    // for use w/ stm32
+    SPI.setClockDivider(SPI_CLOCK_DIV16);
+
     // enable Slave Select
     digitalWrite(9, LOW);
 
@@ -327,7 +327,7 @@ unsigned int RobotOpenClass::calc_crc16(unsigned char *buf, unsigned short len) 
 }
 
 boolean RobotOpenClass::publish(String id, byte val) {
-    if (_outgoingPacketSize+3+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
+    if (_outgoingPacketSize+3+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDSData) {
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & (3+id.length());  // length
         _outgoingPacket[_outgoingPacketSize++] = 'c'; // type
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & val;  // value
@@ -341,7 +341,7 @@ boolean RobotOpenClass::publish(String id, byte val) {
 }
 
 boolean RobotOpenClass::publish(String id, int val) {
-    if (_outgoingPacketSize+4+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
+    if (_outgoingPacketSize+4+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDSData) {
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & (4+id.length());  // length
         _outgoingPacket[_outgoingPacketSize++] = 'i'; // type
         _outgoingPacket[_outgoingPacketSize++] = (val >> 8) & 0xFF;  // value
@@ -356,7 +356,7 @@ boolean RobotOpenClass::publish(String id, int val) {
 }
 
 boolean RobotOpenClass::publish(String id, long val) {
-    if (_outgoingPacketSize+6+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
+    if (_outgoingPacketSize+6+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDSData) {
         _outgoingPacket[_outgoingPacketSize++] = 0xFF & (6+id.length());  // length
         _outgoingPacket[_outgoingPacketSize++] = 'l'; // type
         _outgoingPacket[_outgoingPacketSize++] = (val >> 24) & 0xFF;  // value
@@ -373,7 +373,7 @@ boolean RobotOpenClass::publish(String id, long val) {
 }
 
 boolean RobotOpenClass::publish(String id, float val) {
-    if (_outgoingPacketSize+6+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDebugData) {
+    if (_outgoingPacketSize+6+id.length() <= OUTGOING_PACKET_BUFFER_SIZE && _acceptingDSData) {
         union u_tag {
             byte b[4];
             float fval;
