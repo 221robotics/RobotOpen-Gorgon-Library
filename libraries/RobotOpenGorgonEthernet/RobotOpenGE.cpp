@@ -56,8 +56,8 @@ static char _outgoingPacket[OUTGOING_PACKET_BUFFER_SIZE];      // Data to publis
 static unsigned int _outgoingPacketSize = 0;
 
 // Robot specific stuff
-static boolean _enabled = false;            // Tells us if the robot is enabled or disabled
-static uint8_t _controller_state = 1;       // 1 - NC, 2 - Disabled, 3 - Enabled (sent over SPI to coprocessor)
+static boolean _enabled = true;            // Tells us if the robot is enabled or disabled
+static uint8_t _controller_state = 3;       // 1 - NC, 2 - Disabled, 3 - Enabled (sent over SPI to coprocessor)
 static unsigned long _lastControlPacket = 0;       // Keeps track of the last time (ms) we received data
 static unsigned long _lastDebugDataPublish = 0;    // Keeps track of the last time the timed loop ran
 static unsigned long _lastDSPublish = 0;       // Keeps track of the last time we published DS data
@@ -246,23 +246,6 @@ void RobotOpenClass::attachPWM(byte pwmChannel) {
 void RobotOpenClass::syncDS() {
     // feed watchdog
     wdt_reset();
-  
-    // detect disconnect
-    if ((millis() - _lastControlPacket) > connection_timeout) {  // Disable the robot, drop the connection
-        _enabled = false;
-        _controller_state = 1;
-        // NO CONNECTION
-        onDisable();
-	}
-    else if (_enabled == true) {
-        // ENABLED
-        _controller_state = 3;
-    }
-    else {
-        _controller_state = 2;
-        // DISABLED
-        onDisable();
-    }
 
     // Process any data sitting in the buffer
     handleData();
@@ -443,11 +426,6 @@ void RobotOpenClass::parsePacket() {
 
         // VALID PACKET
         switch (_incomingPacket[0]) {
-            case 'h': // heartbeat
-              _enabled = false;
-              _lastControlPacket = millis();
-              break;
-
             case 'c': // control packet
               _enabled = true;
               _lastControlPacket = millis();
